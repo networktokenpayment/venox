@@ -1,0 +1,26 @@
+[Unit]
+Description=Venox's distributed currency daemon
+After=network.target
+
+[Service]
+User=venox
+Group=venox
+
+Type=forking
+PIDFile=/var/lib/venoxd/venoxd.pid
+
+ExecStart=/usr/bin/venoxd -daemon -pid=/var/lib/venoxd/venoxd.pid \
+          -conf=/etc/venox/venox.conf -datadir=/var/lib/venoxd
+
+ExecStop=-/usr/bin/venox-cli -conf=/etc/venox/venox.conf \
+         -datadir=/var/lib/venoxd stop
+
+Restart=always
+PrivateTmp=true
+TimeoutStopSec=60s
+TimeoutStartSec=2s
+StartLimitInterval=120s
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target

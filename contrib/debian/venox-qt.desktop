@@ -1,0 +1,12 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Venox
+Comment=Venox P2P Cryptocurrency
+Comment[fr]=Venox, monnaie virtuelle cryptographique pair à pair
+Comment[tr]=Venox, eşten eşe kriptografik sanal para birimi
+Exec=venox-qt %u
+Terminal=false
+Type=Application
+Icon=venox128
+MimeType=x-scheme-handler/venox;
+Categories=Office;Finance;
