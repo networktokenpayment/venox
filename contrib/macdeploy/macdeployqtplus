@@ -572,18 +572,18 @@ if len(config.fancy) == 1:
             sys.stderr.write("Error: Bad format of fancy disk image plist at \"%s\"\n" % (p))
         sys.exit(1)
 
-    if "background_picture" in fancy:
-        bp = fancy["background_picture"]
-        if verbose >= 3:
-            print("Fancy: Resolving background picture \"%s\"..." % bp)
-        if not os.path.exists(bp):
-            bp = os.path.join(os.path.dirname(p), bp)
-            if not os.path.exists(bp):
-                if verbose >= 1:
-                    sys.stderr.write("Error: Could not find background picture at \"%s\" or \"%s\"\n" % (fancy["background_picture"], bp))
-                sys.exit(1)
-            else:
-                fancy["background_picture"] = bp
+    #if "background_picture" in fancy:
+    #    bp = fancy["background_picture"]
+    #    if verbose >= 3:
+    #        print("Fancy: Resolving background picture \"%s\"..." % bp)
+    #    if not os.path.exists(bp):
+    #        bp = os.path.join(os.path.dirname(p), bp)
+    #        if not os.path.exists(bp):
+    #            if verbose >= 1:
+    #                sys.stderr.write("Error: Could not find background picture at \"%s\" or \"%s\"\n" % (fancy["background_picture"], bp))
+    #            sys.exit(1)
+    #        else:
+    #    fancy["background_picture"] = bp
 else:
     fancy = None
 
@@ -798,14 +798,14 @@ if config.dmg is not None:
         if verbose >= 2:
             print("+ Applying fancy settings +")
 
-        if "background_picture" in fancy:
-            bg_path = os.path.join(disk_root, ".background", os.path.basename(fancy["background_picture"]))
-            os.mkdir(os.path.dirname(bg_path))
-            if verbose >= 3:
-                print(fancy["background_picture"], "->", bg_path)
-            shutil.copy2(fancy["background_picture"], bg_path)
-        else:
-            bg_path = None
+        #if "background_picture" in fancy:
+        #    bg_path = os.path.join(disk_root, ".background", os.path.basename(fancy["background_picture"]))
+        #    os.mkdir(os.path.dirname(bg_path))
+        #    if verbose >= 3:
+        #        print(fancy["background_picture"], "->", bg_path)
+        #    shutil.copy2(fancy["background_picture"], bg_path)
+        #else:
+        bg_path = None
 
         if fancy.get("applications_symlink", False):
             os.symlink("/Applications", os.path.join(disk_root, "Applications"))
