@@ -148,8 +148,9 @@ public:
         assert(hashGenesisBlock == uint256("0x00000af75c4b0d0ee438b2d659861a37ff9dd1942068970c20ecb04cdf791149"));
         assert(genesis.hashMerkleRoot == uint256("0x7a4d58884bb4d4d5126af96e654cbc6df1f417e738635339fcbadaec68570dad"));
 
-        vSeeds.push_back(CDNSSeedData("seed1.venox.info", "seed1.venox.info"));
-        vSeeds.push_back(CDNSSeedData("seed2.venox.info", "seed2.venox.info"));
+        vSeeds.push_back(CDNSSeedData("seed1.venox.info", "45.77.36.214"));
+        vSeeds.push_back(CDNSSeedData("seed2.venox.info", "149.28.136.143"));
+	vSeeds.push_back(CDNSSeedData("explorer.venox.info", "149.28.136.115"));
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 70); //VVENOX Addresses start with V
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 132);
@@ -171,8 +172,8 @@ public:
         fHeadersFirstSyncingActive = false;
 
         nPoolMaxTransactions = 3;
-        strSporkKey = "042b3323861748b904310b1f63989ad763cf41c20dd54962ce6564234630dda8d2cd84ae234280cf31e48c1e71baeba44abeac3020be89bc942d5ccf53c4b6edd8";
-        strObfuscationPoolDummyAddress = "VCYiHgGJJ6xGHqivmdZrYjRnhaYf6AJ2Mp";
+        strSporkKey = "048CB4AD2289B20DE1C01E10306D60E1E980AAF2C23872635C84C2F30C70F01EFC2BF951AF84DDF500B6E873214697C3FF9FEB27F120E56BC1C6EBA341ED564449";
+        strObfuscationPoolDummyAddress = "VXk2Ay36rGPFHXq1KkULMpzF4d7PBdkQC1";
         nStartMasternodePayments = 1529153612;
 
         /** Zerocoin */
