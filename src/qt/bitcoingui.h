@@ -105,6 +105,8 @@ private:
     QAction* multisigSpendAction;
     QAction* multisigSignAction;
     QAction* aboutAction;
+    QAction* showWebsiteAction;
+    QAction* showExplorerAction;
     QAction* receiveCoinsAction;
     QAction* privacyAction;
     QAction* optionsAction;
@@ -233,6 +235,8 @@ private slots:
     void optionsClicked();
     /** Show about dialog */
     void aboutClicked();
+    void websiteClicked();
+    void exlorerClicked();
     /** Show help message dialog */
     void showHelpMessageClicked();
 #ifndef Q_OS_MAC
