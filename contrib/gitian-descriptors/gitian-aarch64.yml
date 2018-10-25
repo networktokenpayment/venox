@@ -25,7 +25,7 @@ packages:
 - "python"
 reference_datetime: "2015-06-01 00:00:00"
 remotes:
-- "url": "https://github.com/eastcoastcrypto/Venox"
+- "url": "https://github.com/venox-team/Venox"
   "dir": "venox"
 files: []
 script: |
