@@ -55,6 +55,7 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
+#include <QDesktopServices>
 
 #if QT_VERSION < 0x050000
 #include <QTextDocument>
@@ -381,6 +382,9 @@ void BitcoinGUI::createActions(const NetworkStyle* networkStyle)
     aboutAction = new QAction(networkStyle->getAppIcon(), tr("&About Venox Core"), this);
     aboutAction->setStatusTip(tr("Show information about Venox Core"));
     aboutAction->setMenuRole(QAction::AboutRole);
+    showWebsiteAction = new QAction(QIcon(":/icons/website"), tr("Official Venox Website"), this);
+    showExplorerAction = new QAction(QIcon(":/icons/blockexplorer"), tr("Blockexplorer"), this);
+
 #if QT_VERSION < 0x050000
     aboutQtAction = new QAction(QIcon(":/trolltech/qmessagebox/images/qtlogo-64.png"), tr("About &Qt"), this);
 #else
@@ -454,6 +458,9 @@ void BitcoinGUI::createActions(const NetworkStyle* networkStyle)
 
     connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
     connect(aboutAction, SIGNAL(triggered()), this, SLOT(aboutClicked()));
+    connect(showWebsiteAction, SIGNAL(triggered()), this, SLOT(websiteClicked()));
+    connect(showExplorerAction, SIGNAL(triggered()), this, SLOT(exlorerClicked()));
+
     connect(aboutQtAction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
     connect(optionsAction, SIGNAL(triggered()), this, SLOT(optionsClicked()));
     connect(toggleHideAction, SIGNAL(triggered()), this, SLOT(toggleHidden()));
@@ -538,6 +545,11 @@ void BitcoinGUI::createMenuBar()
     help->addSeparator();
     help->addAction(aboutAction);
     help->addAction(aboutQtAction);
+
+    QMenu* about = appMenuBar->addMenu(tr("&About"));
+    about->addAction(showWebsiteAction);
+    about->addSeparator();
+    about->addAction(showExplorerAction);
 }
 
 void BitcoinGUI::createToolBars()
@@ -748,6 +760,18 @@ void BitcoinGUI::aboutClicked()
 
     HelpMessageDialog dlg(this, true);
     dlg.exec();
+}
+
+void BitcoinGUI::websiteClicked()
+{
+    QString link = "https://venox.info/";
+    QDesktopServices::openUrl(QUrl(link));
+}
+
+void BitcoinGUI::exlorerClicked()
+{
+    QString link = "http://explorer.venox.info/";
+    QDesktopServices::openUrl(QUrl(link));
 }
 
 void BitcoinGUI::showHelpMessageClicked()
