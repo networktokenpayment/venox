@@ -546,7 +546,7 @@ void BitcoinGUI::createMenuBar()
     help->addAction(aboutAction);
     help->addAction(aboutQtAction);
 
-    QMenu* about = appMenuBar->addMenu(tr("&About"));
+    QMenu* about = appMenuBar->addMenu(tr("&VNX-Info"));
     about->addAction(showWebsiteAction);
     about->addSeparator();
     about->addAction(showExplorerAction);
