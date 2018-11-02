@@ -65,6 +65,7 @@ src/qt/test/moc*.cpp
 *.pyc
 *.o
 *.o-*
+*.patch
 .venox
 *.a
 *.pb.cc
@@ -83,7 +84,7 @@ src/qt/test/moc*.cpp
 
 # Compilation and Qt preprocessor part
 *.qm
-/Makefile
+Makefile
 venox-qt
 venox-Qt.app
 
