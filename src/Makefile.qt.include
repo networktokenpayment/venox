@@ -218,18 +218,24 @@ RES_ICONS = \
   qt/res/icons/eye_minus.png \
   qt/res/icons/eye_plus.png \
   qt/res/icons/filesave.png \
-  qt/res/icons/history.png \
+  qt/res/icons/history_open.png \
+  qt/res/icons/history_closed.png \
   qt/res/icons/key.png \
   qt/res/icons/lock_closed.png \
   qt/res/icons/lock_open.png \
-  qt/res/icons/masternodes.png \
-  qt/res/icons/overview.png \
+  qt/res/icons/masternodes_open.png \
+  qt/res/icons/masternodes_closed.png \
+  qt/res/icons/overview_open.png \
+  qt/res/icons/overview_closed.png \
   qt/res/icons/qrcode.png \
   qt/res/icons/quit.png \
-  qt/res/icons/receive.png \
-  qt/res/icons/privacy.png \
+  qt/res/icons/receive_open.png \
+  qt/res/icons/receive_closed.png \
+  qt/res/icons/privacy_open.png \
+  qt/res/icons/privacy_closed.png \
   qt/res/icons/remove.png \
-  qt/res/icons/send.png \
+  qt/res/icons/send_open.png \
+  qt/res/icons/send_closed.png \
   qt/res/icons/staking_active.png \
   qt/res/icons/staking_inactive.png \
   qt/res/icons/synced.png \
