@@ -254,6 +254,9 @@ private slots:
 
     /** Show progress dialog e.g. for verifychain */
     void showProgress(const QString& title, int nProgress);
+
+    /** Change all icons in toolbar to closed */
+    void resetIcons();
 };
 
 class UnitDisplayStatusBarControl : public QLabel

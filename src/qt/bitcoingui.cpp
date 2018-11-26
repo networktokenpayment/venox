@@ -569,7 +569,7 @@ void BitcoinGUI::createToolBars()
         }
         toolbar->setMovable(false); // remove unused icon in upper left corner
         overviewAction->setChecked(true);
-        //overviewAction->setIcon(QIcon(":/icons/overview_open"));
+        overviewAction->setIcon(QIcon(":/icons/overview_open"));
 
         /** Create additional container for toolbar and walletFrame and make it the central widget.
             This is a workaround mostly for toolbar styling on Mac OS but should work fine for every other OSes too.
@@ -793,6 +793,7 @@ void BitcoinGUI::openClicked()
 
 void BitcoinGUI::gotoOverviewPage()
 {
+    resetIcons();
     overviewAction->setChecked(true);
     overviewAction->setIcon(QIcon(":/icons/overview_open"));
     if (walletFrame) walletFrame->gotoOverviewPage();
@@ -800,7 +801,9 @@ void BitcoinGUI::gotoOverviewPage()
 
 void BitcoinGUI::gotoHistoryPage()
 {
+    resetIcons();
     historyAction->setChecked(true);
+    historyAction->setIcon(QIcon(":/icons/history_open"));
     if (walletFrame) walletFrame->gotoHistoryPage();
 }
 
@@ -808,26 +811,34 @@ void BitcoinGUI::gotoMasternodePage()
 {
     QSettings settings;
     if (settings.value("fShowMasternodesTab").toBool()) {
+        resetIcons();
         masternodeAction->setChecked(true);
+        masternodeAction->setIcon(QIcon(":/icons/masternodes_open"));
         if (walletFrame) walletFrame->gotoMasternodePage();
     }
 }
 
 void BitcoinGUI::gotoReceiveCoinsPage()
 {
+    resetIcons();
     receiveCoinsAction->setChecked(true);
+    receiveCoinsAction->setIcon(QIcon(":/icons/receiving_addresses_open"));
     if (walletFrame) walletFrame->gotoReceiveCoinsPage();
 }
 
 void BitcoinGUI::gotoPrivacyPage()
 {
+    resetIcons();
     privacyAction->setChecked(true);
+    privacyAction->setIcon(QIcon(":/icons/privacy_open"));
     if (walletFrame) walletFrame->gotoPrivacyPage();
 }
 
 void BitcoinGUI::gotoSendCoinsPage(QString addr)
 {
+    resetIcons();
     sendCoinsAction->setChecked(true);
+    sendCoinsAction->setIcon(QIcon(":/icons/send_open"));
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
 }
 
@@ -1286,6 +1297,19 @@ void BitcoinGUI::showProgress(const QString& title, int nProgress)
         }
     } else if (progressDialog)
         progressDialog->setValue(nProgress);
+}
+
+void BitcoinGUI::resetIcons()
+{
+    overviewAction->setIcon(QIcon(":/icons/overview_closed"));
+    privacyAction->setIcon(QIcon(":/icons/privacy_closed"));
+    receiveCoinsAction->setIcon(QIcon(":/icons/receiving_addresses_closed"));
+    sendCoinsAction->setIcon(QIcon(":/icons/send_closed"));
+    historyAction->setIcon(QIcon(":/icons/history_closed"));
+
+    QSettings settings;
+    if (settings.value("fShowMasternodesTab").toBool())
+        masternodeAction->setIcon(QIcon(":/icons/masternodes_closed"));
 }
 
 static bool ThreadSafeMessageBox(BitcoinGUI* gui, const std::string& message, const std::string& caption, unsigned int style)
