@@ -281,7 +281,7 @@ Clone the git repositories for venox and gitian and then checkout the venox vers
 
 ```bash
 git clone https://github.com/devrandom/gitian-builder.git
-git clone https://github.com/eastcoastcrypto/Venox.git
+git clone https://github.com/venox-team/Venox.git
 cd venox
 git checkout v${VERSION}
 cd ..
@@ -350,7 +350,7 @@ Output from `gbuild` will look something like
     remote: Total 35606 (delta 0), reused 0 (delta 0)
     Receiving objects: 100% (35606/35606), 26.52 MiB | 4.28 MiB/s, done.
     Resolving deltas: 100% (25724/25724), done.
-    From https://github.com/eastcoastcrypto/Venox
+    From https://github.com/venox-team/Venox
     ... (new tags, new branch etc)
     --- Building for precise x86_64 ---
     Stopping target if it is up
@@ -377,7 +377,7 @@ and inputs.
 
 For example:
 ```bash
-URL=https://github.com/eastcoastcrypto/Venox.git
+URL=https://github.com/venox-team/Venox.git
 COMMIT=b616fb8ef0d49a919b72b0388b091aaec5849b96
 ./bin/gbuild --commit venox=${COMMIT} --url venox=${URL} ../Venox/contrib/gitian-descriptors/gitian-linux.yml
 ./bin/gbuild --commit venox=${COMMIT} --url venox=${URL} ../Venox/contrib/gitian-descriptors/gitian-win.yml
@@ -408,6 +408,6 @@ Uploading signatures (not yet implemented)
 ---------------------
 
 In the future it will be possible to push your signatures (both the `.assert` and `.assert.sig` files) to the
-[eastcoastcrypto/gitian.sigs](https://github.com/eastcoastcrypto/gitian.sigs/) repository, or if that's not possible to create a pull
+[venox-team/gitian.sigs](https://github.com/venox-team/gitian.sigs/) repository, or if that's not possible to create a pull
 request.
 There will be an official announcement when this repository is online.

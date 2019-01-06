@@ -7,7 +7,7 @@ architectures:
 packages:
 - "faketime"
 remotes:
-- "url": "https://github.com/eastcoastcrypto/venox-detached-sigs.git"
+- "url": "https://github.com/venox-team/venox-detached-sigs.git"
   "dir": "signature"
 files:
 - "venox-osx-unsigned.tar.gz"

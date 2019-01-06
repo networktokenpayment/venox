@@ -77,8 +77,6 @@ endif
 # venox core #
 BITCOIN_CORE_H = \
   activemasternode.h \
-  accumulators.h \
-  accumulatormap.h \
   addrman.h \
   alert.h \
   allocators.h \
@@ -171,6 +169,7 @@ BITCOIN_CORE_H = \
   zmq/zmqconfig.h \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h \
+  accumulators.h \
   compat/sanity.h
 
 JSON_H = \
@@ -277,26 +276,13 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/hmac_sha512.cpp \
   crypto/scrypt.cpp \
   crypto/ripemd160.cpp \
-  crypto/sph_md_helper.c \
-  crypto/sph_sha2big.c \
   crypto/aes_helper.c \
   crypto/blake.c \
   crypto/bmw.c \
   crypto/groestl.c \
   crypto/jh.c \
-  crypto/luffa.c \
   crypto/keccak.c \
   crypto/skein.c \
-  crypto/cubehash.c \
-  crypto/shavite.c \
-  crypto/shabal.c \
-  crypto/simd.c \
-  crypto/echo.c \
-  crypto/whirlpool.c \
-  crypto/haval.c \
-  crypto/hamsi.c \
-  crypto/fugue.c \
-  crypto/sha2.c \
   crypto/common.h \
   crypto/sha256.h \
   crypto/sha512.h \
@@ -311,18 +297,7 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/sph_groestl.h \
   crypto/sph_jh.h \
   crypto/sph_keccak.h \
-  crypto/sph_luffa.h \
-  crypto/sph_shavite.h \
-  crypto/sph_hamsi.h \
-  crypto/sph_cubehash.h \
   crypto/sph_skein.h \
-  crypto/sph_simd.h \
-  crypto/sph_fugue.h \
-  crypto/sph_echo.h \
-  crypto/sph_shabal.h \
-  crypto/sph_whirlpool.h \
-  crypto/sph_sha2.h \
-  crypto/sph_haval.h \
   crypto/sph_types.h
 
 # univalue JSON library
@@ -359,8 +334,6 @@ libzerocoin_libbitcoin_zerocoin_a_SOURCES = \
 # common: shared between venoxd, and venox-qt and non-server tools
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_common_a_SOURCES = \
-  accumulators.cpp \
-  accumulatormap.cpp \
   allocators.cpp \
   amount.cpp \
   base58.cpp \
@@ -388,6 +361,7 @@ libbitcoin_common_a_SOURCES = \
   script/script_error.cpp \
   spork.cpp \
   sporkdb.cpp \
+  accumulators.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.

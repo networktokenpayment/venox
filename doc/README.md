@@ -41,7 +41,7 @@ The following are developer notes on how to build Venox on your native platform.
 
 Development
 ---------------------
-The Venox repo's [root README](https://github.com/eastcoastcrypto/Venox/blob/master/README.md) contains relevant information on the development process and automated testing.
+The Venox repo's [root README](https://github.com/venox-team/Venox/blob/master/README.md) contains relevant information on the development process and automated testing.
 
 - [Developer Notes](developer-notes.md)
 - [Multiwallet Qt Development](multiwallet-qt.md)

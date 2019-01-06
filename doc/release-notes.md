@@ -2,11 +2,11 @@
 
 Venox Core version *version* is now available from:
 
-  <https://github.com/eastcoastcrypto/Venox/releases>
+  <https://github.com/venox-team/Venox/releases>
 
 Please report bugs using the issue tracker at github:
 
-  <https://github.com/eastcoastcrypto/Civita/issues>
+  <https://github.com/venox-team/Civita/issues>
 
 Mandatory Update
 ==============

@@ -8,7 +8,7 @@ packages:
 - "libssl-dev"
 - "autoconf"
 remotes:
-- "url": "https://github.com/eastcoastcrypto/venox-detached-sigs.git"
+- "url": "https://github.com/venox-team/venox-detached-sigs.git"
   "dir": "signature"
 files:
 - "osslsigncode-1.7.1.tar.gz"

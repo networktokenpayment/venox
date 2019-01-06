@@ -1,5 +1,5 @@
 ---
-name: "venox-win-1.2"
+name: "venox-win-3.0"
 enable_cache: true
 suites:
 - "trusty"
@@ -22,7 +22,7 @@ packages:
 - "ca-certificates"
 - "python"
 remotes:
-- "url": "https://github.com/eastcoastcrypto/Venox"
+- "url": "https://github.com/venox-team/venox.git"
   "dir": "venox"
 files: []
 script: |
