@@ -107,7 +107,7 @@ static void CheckBlockIndex();
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
-const string strMessageMagic = "DarkNet Signed Message:\n";
+const string strMessageMagic = "Venox Signed Message:\n";
 
 // Internal stuff
 namespace
@@ -1420,6 +1420,9 @@ bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, bool fReject
     CAmount nValueOut = 0;
     int nZCSpendCount = 0;
     BOOST_FOREACH (const CTxOut& txout, tx.vout) {
+        if(txout.referenceline.length() > 200)
+            return state.DoS(100, error("CTransaction::CHeckTransaction() : txout.referenceline encrypted length > 200 characters"));
+
         if (txout.IsEmpty() && !tx.IsCoinBase() && !tx.IsCoinStake())
             return state.DoS(100, error("CheckTransaction(): txout empty for user transaction"));
 

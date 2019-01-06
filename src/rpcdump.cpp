@@ -122,13 +122,16 @@ Value importprivkey(const Array& params, bool fHelp)
     CKeyID vchAddress = pubkey.GetID();
     {
         pwalletMain->MarkDirty();
-        pwalletMain->SetAddressBook(vchAddress, strLabel, "receive");
+        pwalletMain->GetKeyFromPool(temppubkeyForBitcoinAddress); //Get new PubKey for encryption of the reference line
+        CBitcoinAddress addr;
+        addr.Set(vchAddress, temppubkeyForBitcoinAddress);
+        pwalletMain->SetAddressBook(addr.Get(), strLabel, "receive");
 
         // Don't throw error in case a key is already there
-        if (pwalletMain->HaveKey(vchAddress))
+        if (pwalletMain->HaveKey(addr.Get()))
             return Value::null;
 
-        pwalletMain->mapKeyMetadata[vchAddress].nCreateTime = 1;
+        pwalletMain->mapKeyMetadata[addr.Get()].nCreateTime = 1;
 
         if (!pwalletMain->AddKeyPubKey(key, pubkey))
             throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");

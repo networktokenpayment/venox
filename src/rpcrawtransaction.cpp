@@ -33,12 +33,13 @@ using namespace boost::assign;
 using namespace json_spirit;
 using namespace std;
 
-void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeHex)
+void ScriptPubKeyToJSON(const CScript& scriptPubKey, CPubKey receiverPubKey, Object& out, bool fIncludeHex)
 {
     txnouttype type;
     vector<CTxDestination> addresses;
     int nRequired;
 
+    temppubkeyForBitcoinAddress = receiverPubKey;
     out.push_back(Pair("asm", scriptPubKey.ToString()));
     if (fIncludeHex)
         out.push_back(Pair("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
@@ -51,10 +52,20 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeH
     out.push_back(Pair("reqSigs", nRequired));
     out.push_back(Pair("type", GetTxnOutputType(type)));
 
-    Array a;
-    BOOST_FOREACH (const CTxDestination& addr, addresses)
+    Array a, b;
+    BOOST_FOREACH (const CTxDestination& address, addresses) {
+
+        CBitcoinAddress addr;
+        CKeyID keyID;
+        CBitcoinAddress(address).GetKeyID(keyID);
+        addr.set(keyID, receiverPubKey);
+
         a.push_back(CBitcoinAddress(addr).ToString());
+        b.push_back(keyID.ToString());
+    }
+
     out.push_back(Pair("addresses", a));
+    out.push_back(Pair("PubKeyHashes", b));
 }
 
 void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
@@ -86,7 +97,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("n", (int64_t)i));
         Object o;
-        ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
+        ScriptPubKeyToJSON(txout.scriptPubKey, txout.receiverPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
         vout.push_back(out);
     }
@@ -337,6 +348,10 @@ Value createrawtransaction(const Array& params, bool fHelp)
 
     CMutableTransaction rawTx;
 
+    std::string referenceline = "";
+    if(params.size() > 2)
+      referenceline = params[2].get_str();
+
     BOOST_FOREACH (const Value& input, inputs) {
         const Object& o = input.get_obj();
 
@@ -366,7 +381,17 @@ Value createrawtransaction(const Array& params, bool fHelp)
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(s.value_);
 
-        CTxOut out(nAmount, scriptPubKey);
+        CPubKey senderPubKey;
+        pwalletMain->GetKeyFromPool(senderPubKey);
+
+        //Encrypt referenceline
+        CKey vchSecret;
+        if(pwalletMain->GetKey(senderPubKey.GetID(), vchSecret))
+          referenceline = pwalletMain->EncryptRefLine(referenceline, address.GetReceiverPubKey(), vchSecret);
+        else
+          referenceline = "";
+
+        CTxOut out(nAmount, scriptPubKey, referenceline, senderPubKey, address.GetReceiverPubKey());
         rawTx.vout.push_back(out);
     }
 

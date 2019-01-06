@@ -84,8 +84,9 @@ protected:
     vector_uchar vchData;
 
     CBase58Data();
-    void SetData(const std::vector<unsigned char>& vchVersionIn, const void* pdata, size_t nSize);
-    void SetData(const std::vector<unsigned char>& vchVersionIn, const unsigned char* pbegin, const unsigned char* pend);
+    void SetDataPrivate(const std::vector<unsigned char>& vchVersionIn, const void* pdata, size_t nSize);
+    void SetData(const std::vector<unsigned char>& vchVersionIn, const void* pdata, const void* pdata2, size_t nSize, size_t nSize2);
+    //void SetData(const std::vector<unsigned char>& vchVersionIn, const unsigned char* pbegin, const unsigned char* pend);
 
 public:
     bool SetString(const char* psz, unsigned int nVersionBytes = 1);
@@ -109,8 +110,8 @@ public:
 class CBitcoinAddress : public CBase58Data
 {
 public:
-    bool Set(const CKeyID& id);
-    bool Set(const CScriptID& id);
+    bool Set(const CKeyID& id, const CPubKey &id2);
+    bool Set(const CScriptID& id, const CPubKey &id2);
     bool Set(const CTxDestination& dest);
     bool IsValid() const;
     bool IsValid(const CChainParams& params) const;
@@ -124,6 +125,7 @@ public:
     bool GetKeyID(CKeyID& keyID) const;
     bool IsScript() const;
 };
+extern CPubKey temppubkeyForBitcoinAddress;
 
 /**
  * A base58-encoded secret key

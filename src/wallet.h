@@ -152,6 +152,14 @@ public:
     StringMap destdata;
 };
 
+struct CRecipient
+{
+  CScript scriptPubKey;
+  CAmount nAmount;
+  std::string refline;
+  CPubKey cpkey;
+}
+
 /**
  * A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
@@ -313,7 +321,7 @@ public:
     {
         fBackupMints = fEnabled;
     }
-    
+
     bool isMultiSendEnabled()
     {
         return fMultiSendMasternodeReward || fMultiSendStake;
@@ -461,6 +469,15 @@ public:
     CAmount GetImmatureWatchOnlyBalance() const;
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, std::string& strFailReason, const CCoinControl* coinControl);
     bool CreateTransaction(const std::vector<std::pair<CScript, CAmount> >& vecSend,
+        CWalletTx& wtxNew,
+        CReserveKey& reservekey,
+        CAmount& nFeeRet,
+        std::string& strFailReason,
+        const CCoinControl* coinControl = NULL,
+        AvailableCoinsType coin_type = ALL_COINS,
+        bool useIX = false,
+        CAmount nFeePay = 0);
+    bool CreateTransaction(const std::vector<CRecipient>& vecSend,
         CWalletTx& wtxNew,
         CReserveKey& reservekey,
         CAmount& nFeeRet,
@@ -637,6 +654,14 @@ public:
 
     /** MultiSig address added */
     boost::signals2::signal<void(bool fHaveMultiSig)> NotifyMultiSigChanged;
+
+    /**
+     * Explicitly make the wallet learn the related scripts for outputs to the
+     * given key. This is purely to make the wallet file compatible with older
+     * software, as CBasicKeyStore automatically does this implicitly for all
+     * keys now.
+     */
+     void LearnRelatedScripts(const CPubKey& key, OutputType);
 };
 
 
@@ -1399,6 +1424,17 @@ public:
     }
 };
 
+/**
+ * Get a destination of the requested type (if possible) to the specified key.
+ * The caller must make sure LearnRelatedScripts has been called beforehand.
+ */
+CTxDestination GetDestinationForKey(const CPubKey& key);
+CTxDestination GetDestinationFor2Keys(const CPubKey& key,const CPubKey& key2);
+CPubKey GetSecondPubKeyForDestination(const CTxDestination& dest);
+void SetSecondPubKeyForDestination(CTxDestination& dest, const CPubKey& key2);
+
+/** Get all destinations (potentially) supported by the wallet for the given key. */
+std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key,const CPubKey& key2);
 
 /**
  * Internal transfers.

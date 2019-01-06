@@ -11,6 +11,7 @@
 #include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
+#include "pubkey.h"
 
 #include <list>
 
@@ -118,12 +119,17 @@ public:
     CScript scriptPubKey;
     int nRounds;
 
+    std::string referenceline;
+    CPubKey senderPubKey;
+    CPubKey receiverPubKey;
+
     CTxOut()
     {
         SetNull();
     }
 
     CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, std::string referencelineIn, CPubKey senderPubKeyIn, CPubKey receiverPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -131,11 +137,17 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
+        if (userefline) {
+          READWRITE(referenceline);
+          READWRITE(senderPubKey);
+  	      READWRITE(receiverPubKey);
+        }
     }
 
     void SetNull()
     {
         nValue = -1;
+        referenceline = "";
         scriptPubKey.clear();
         nRounds = -10; // an initial value, should be no way to get this by calculations
     }
@@ -180,7 +192,10 @@ public:
     {
         return (a.nValue       == b.nValue &&
                 a.scriptPubKey == b.scriptPubKey &&
-                a.nRounds      == b.nRounds);
+                a.nRounds      == b.nRounds &&
+                a.referenceline == b.referenceline &&
+                a.senderPubKey == b.senderPubKey &&
+                a.receiverPubKey == b.receiverPubKey);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)

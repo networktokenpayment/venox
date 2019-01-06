@@ -107,7 +107,11 @@ Value getnewaddress(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     CKeyID keyID = newKey.GetID();
 
-    pwalletMain->SetAddressBook(keyID, strAccount, "receive");
+    pwalletMain->GetKeyFromPool(temppubkeyForBitcoinAddress) //Get new PubKey for encryption of reference line
+    CBitcoinAddress addr;
+    addr.Set(keyID, temppubkeyForBitcoinAddress);
+
+    pwalletMain->SetAddressBook(addr.Get(), strAccount, "receive");
 
     return CBitcoinAddress(keyID).ToString();
 }
@@ -116,6 +120,7 @@ Value getnewaddress(const Array& params, bool fHelp)
 CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew = false)
 {
     CWalletDB walletdb(pwalletMain->strWalletFile);
+    CBitcoinAddress addr;
 
     CAccount account;
     walletdb.ReadAccount(strAccount, account);
@@ -135,16 +140,40 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew = false)
         }
     }
 
+    //Get new PubKey for encryption of the reference line
+    pwalletMain->GetKeyFromPool(temppubkeyForBitcoinAddress, false);
+
     // Generate a new key
     if (!account.vchPubKey.IsValid() || bForceNew || bKeyUsed) {
         if (!pwalletMain->GetKeyFromPool(account.vchPubKey))
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
 
-        pwalletMain->SetAddressBook(account.vchPubKey.GetID(), strAccount, "receive");
+        addr.Set(account.vchPubKey.GetID(), temppubkeyForBitcoinAddress);
+
+        pwalletMain->SetAddressBook(addr.Get(), strAccount, "receive");
         walletdb.WriteAccount(strAccount, account);
     }
+    else
+    {
+        bool found = false;
+        BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, std::string)& it, pwalletMain->mapAddressBook)
+        {
+          CKeyID keyID;
 
-    return CBitcoinAddress(account.vchPubKey.GetID());
+          if(strAccount == it.second && it.first.GetKeyID(keyID) && keyID == account.vchPubKey.GetID()) {
+            found = true;
+            addr = it.first;
+            break;
+          }
+        }
+
+        if (!found) {
+          addr.Set(account.vchPubKey.GetID(), temppubkeyForBitcoinAddress);
+          pwalletMain->SetAddressBook(addr.Get(), strAccount, "recieve");
+        }
+    }
+
+    return addr;
 }
 
 Value getaccountaddress(const Array& params, bool fHelp)
@@ -290,7 +319,7 @@ Value getaddressesbyaccount(const Array& params, bool fHelp)
     return ret;
 }
 
-void SendMoney(const CTxDestination& address, CAmount nValue, CWalletTx& wtxNew, bool fUseIX = false)
+void SendMoney(const CTxDestination& address, CAmount nValue, CWalletTx& wtxNew, std:string referenceline, bool fUseIX = false, bool encryptRefline = true)
 {
     // Check amount
     if (nValue <= 0)
@@ -324,9 +353,9 @@ void SendMoney(const CTxDestination& address, CAmount nValue, CWalletTx& wtxNew,
 
 Value sendtoaddress(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 4)
+    if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
-            "sendtoaddress \"venoxaddress\" amount ( \"comment\" \"comment-to\" )\n"
+            "sendtoaddress \"venoxaddress\" amount ( \"referenceline\" \"comment\" \"comment-to\" )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n" +
             HelpRequiringPassphrase() +
             "\nArguments:\n"
@@ -349,16 +378,21 @@ Value sendtoaddress(const Array& params, bool fHelp)
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
 
+    // Referenceline
+    std::string referenceline = "";
+    if(params.size() > 2 && params[2].type() != null_type && !params[2].get_str().empty())
+      reference = params[2].get_str();
+
     // Wallet comments
     CWalletTx wtx;
-    if (params.size() > 2 && params[2].type() != null_type && !params[2].get_str().empty())
-        wtx.mapValue["comment"] = params[2].get_str();
     if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
-        wtx.mapValue["to"] = params[3].get_str();
+        wtx.mapValue["comment"] = params[3].get_str();
+    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
+        wtx.mapValue["to"] = params[4].get_str();
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, wtx);
+    SendMoney(address.Get(), nAmount, wtx, referenceline);
 
     return wtx.GetHash().GetHex();
 }
@@ -373,9 +407,11 @@ Value sendtoaddressix(const Array& params, bool fHelp)
             "\nArguments:\n"
             "1. \"venoxaddress\"  (string, required) The venox address to send to.\n"
             "2. \"amount\"      (numeric, required) The amount in btc to send. eg 0.1\n"
-            "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
+            "3. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
+            "                             This is part of the transaction.\n"
+            "4. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
             "                             This is not part of the transaction, just kept in your wallet.\n"
-            "4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
+            "5. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "\nResult:\n"
@@ -390,16 +426,20 @@ Value sendtoaddressix(const Array& params, bool fHelp)
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
 
+    std::string referenceline = "";
+    if (!request.params[2].isNull() && !request.params[2].get_str().empty())
+        referenceline = request.params[2].get_str();
+
     // Wallet comments
     CWalletTx wtx;
-    if (params.size() > 2 && params[2].type() != null_type && !params[2].get_str().empty())
-        wtx.mapValue["comment"] = params[2].get_str();
     if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
-        wtx.mapValue["to"] = params[3].get_str();
+        wtx.mapValue["comment"] = params[3].get_str();
+    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
+        wtx.mapValue["to"] = params[4].get_str();
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, wtx, true);
+    SendMoney(address.Get(), nAmount, wtx, referenceline, true);
 
     return wtx.GetHash().GetHex();
 }
@@ -769,10 +809,12 @@ Value sendfrom(const Array& params, bool fHelp)
                                         "1. \"fromaccount\"       (string, required) The name of the account to send funds from. May be the default account using \"\".\n"
                                         "2. \"tovenoxaddress\"  (string, required) The venox address to send funds to.\n"
                                         "3. amount                (numeric, required) The amount in btc. (transaction fee is added on top).\n"
-                                        "4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
-                                        "5. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
+                                        "4. \"referenceline\"      (string, optional) A reference line used to store what the transaction is for. \n"
+                                        "                             This is part of the transaction.\n"
+                                        "5. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
+                                        "6. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
                                         "                                     This is not part of the transaction, just kept in your wallet.\n"
-                                        "6. \"comment-to\"        (string, optional) An optional comment to store the name of the person or organization \n"
+                                        "7. \"comment-to\"        (string, optional) An optional comment to store the name of the person or organization \n"
                                         "                                     to which you're sending the transaction. This is not part of the transaction, \n"
                                         "                                     it is just kept in your wallet.\n"
                                         "\nResult:\n"
@@ -788,16 +830,21 @@ Value sendfrom(const Array& params, bool fHelp)
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Venox address");
     CAmount nAmount = AmountFromValue(params[2]);
+
+    std::string referenceline = "";
+    if (!request.params[3].isNull() && !request.params[3].get_str().empty())
+        referenceline = request.params[3].get_str();
+
     int nMinDepth = 1;
-    if (params.size() > 3)
-        nMinDepth = params[3].get_int();
+    if (params.size() > 4)
+        nMinDepth = params[4].get_int();
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
-    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
-        wtx.mapValue["comment"] = params[4].get_str();
     if (params.size() > 5 && params[5].type() != null_type && !params[5].get_str().empty())
-        wtx.mapValue["to"] = params[5].get_str();
+        wtx.mapValue["comment"] = params[5].get_str();
+    if (params.size() > 6 && params[6].type() != null_type && !params[6].get_str().empty())
+        wtx.mapValue["to"] = params[6].get_str();
 
     EnsureWalletIsUnlocked();
 
@@ -806,7 +853,7 @@ Value sendfrom(const Array& params, bool fHelp)
     if (nAmount > nBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
-    SendMoney(address.Get(), nAmount, wtx);
+    SendMoney(address.Get(), nAmount, wtx, referenceline);
 
     return wtx.GetHash().GetHex();
 }
@@ -826,8 +873,10 @@ Value sendmany(const Array& params, bool fHelp)
                                         "      \"address\":amount   (numeric) The venox address is the key, the numeric amount in btc is the value\n"
                                         "      ,...\n"
                                         "    }\n"
-                                        "3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
-                                        "4. \"comment\"             (string, optional) A comment\n"
+                                        "3. \"referenceline\"       (string, optional) A reference line used to store what the transaction is for. \n"
+                                        "                              This is part of the transaction.\n"
+                                        "4. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
+                                        "5. \"comment\"             (string, optional) A comment\n"
                                         "\nResult:\n"
                                         "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
                                         "                                    the number of addresses.\n"
@@ -839,17 +888,22 @@ Value sendmany(const Array& params, bool fHelp)
 
     string strAccount = AccountFromValue(params[0]);
     Object sendTo = params[1].get_obj();
+
+    std::string referenceline = "";
+    if (!request.params[2].isNull() && !request.params[2].get_str().empty())
+        referenceline = request.params[2].get_str();
+
     int nMinDepth = 1;
-    if (params.size() > 2)
-        nMinDepth = params[2].get_int();
+    if (params.size() > 3)
+        nMinDepth = params[3].get_int();
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
-    if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
-        wtx.mapValue["comment"] = params[3].get_str();
+    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
+        wtx.mapValue["comment"] = params[4].get_str();
 
     set<CBitcoinAddress> setAddress;
-    vector<pair<CScript, CAmount> > vecSend;
+    vector<CRecipient> vecSend;
 
     CAmount totalAmount = 0;
     BOOST_FOREACH (const Pair& s, sendTo) {
@@ -865,7 +919,8 @@ Value sendmany(const Array& params, bool fHelp)
         CAmount nAmount = AmountFromValue(s.value_);
         totalAmount += nAmount;
 
-        vecSend.push_back(make_pair(scriptPubKey, nAmount));
+        CRecipient recipient = {scriptPubKey, nAmount, referenceline, GetSecondPubKeyForDestination(address.Get())}
+        vecSend.push_back(recipient);
     }
 
     EnsureWalletIsUnlocked();
@@ -2321,23 +2376,23 @@ Value getzerocoinbalance(const Array& params, bool fHelp)
 }
 Value listmintedzerocoins(const Array& params, bool fHelp)
 {
-    
+
     if (fHelp || params.size() != 0)
         throw runtime_error(
                             "listmintedzerocoins\n"
                             + HelpRequiringPassphrase());
-    
+
     if (pwalletMain->IsLocked())
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
-    
+
     CWalletDB walletdb(pwalletMain->strWalletFile);
     list<CZerocoinMint> listPubCoin = walletdb.ListMintedCoins(true, false, true);
-    
+
     Array jsonList;
     for (const CZerocoinMint& pubCoinItem : listPubCoin) {
         jsonList.push_back(pubCoinItem.GetValue().GetHex());
     }
-    
+
     return jsonList;
 }
 
@@ -2354,7 +2409,7 @@ Value listzerocoinamounts(const Array& params, bool fHelp)
 
     CWalletDB walletdb(pwalletMain->strWalletFile);
     list<CZerocoinMint> listPubCoin = walletdb.ListMintedCoins(true, true, true);
- 
+
     std::map<libzerocoin::CoinDenomination, CAmount> spread;
     for (const auto& denom : libzerocoin::zerocoinDenomList)
         spread.insert(std::pair<libzerocoin::CoinDenomination, CAmount>(denom, 0));
@@ -2431,7 +2486,7 @@ Value mintzerocoin(const Array& params, bool fHelp)
         m.push_back(Pair("time", GetTimeMillis() - nTime));
         arrMints.push_back(m);
     }
-    
+
     return arrMints;
 }
 

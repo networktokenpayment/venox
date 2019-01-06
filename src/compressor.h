@@ -121,8 +121,11 @@ public:
             READWRITE(VARINT(nVal));
             txout.nValue = DecompressAmount(nVal);
         }
+        READWRITE(txout.referenceline);
         CScriptCompressor cscript(REF(txout.scriptPubKey));
         READWRITE(cscript);
+        READWRITE(txout.senderPubKey);
+        READWRITE(txout.receiverPubKey);
     }
 };
 

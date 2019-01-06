@@ -53,6 +53,224 @@ bool fPayAtLeastCustomFee = true;
 CFeeRate CWallet::minTxFee = CFeeRate(10000);
 int64_t nStartupTime = GetAdjustedTime();
 
+CPubKey temppubkeyForBitcoinAddress;
+
+/**
+ * Create an 256 bit key and IV using the supplied key_data. salt can be added for taste.
+ * Fills in the encryption and decryption ctx objects and returns 0 on success
+ **/
+int aes_init(unsigned char *key_data, int key_data_len, unsigned char *salt, EVP_CIPHER_CTX *e_ctx,
+             EVP_CIPHER_CTX *d_ctx)
+{
+  int i, nrounds = 5;
+  unsigned char key[32], iv[32];
+
+  /*
+   * Gen key & IV for AES 256 CBC mode. A SHA256 digest is used to hash the supplied key material.
+   * nrounds is the number of times the we hash the material. More rounds are more secure but
+   * slower.
+   */
+  i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha256(), salt, key_data, key_data_len, nrounds, key, iv);
+  if (i != 32) {
+    printf("Key size is %d bits - should be 256 bits\n", i);
+    return -1;
+  }
+
+  EVP_CIPHER_CTX_init(e_ctx);
+  EVP_EncryptInit_ex(e_ctx, EVP_aes_256_cbc(), NULL, key, iv);
+  EVP_CIPHER_CTX_init(d_ctx);
+  EVP_DecryptInit_ex(d_ctx, EVP_aes_256_cbc(), NULL, key, iv);
+
+  return 0;
+}
+
+/*
+ * Encrypt *len bytes of data
+ * All data going in & out is considered binary (unsigned char[])
+ */
+unsigned char *aes_encrypt(EVP_CIPHER_CTX *e, unsigned char *plaintext, int *len)
+{
+  /* max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes */
+  int c_len = *len + AES_BLOCK_SIZE, f_len = 0;
+  unsigned char *ciphertext = (unsigned char *)malloc(c_len);
+
+  /* allows reusing of 'e' for multiple encryption cycles */
+  EVP_EncryptInit_ex(e, NULL, NULL, NULL, NULL);
+
+  /* update ciphertext, c_len is filled with the length of ciphertext generated,
+    *len is the size of plaintext in bytes */
+  EVP_EncryptUpdate(e, ciphertext, &c_len, plaintext, *len);
+
+  /* update ciphertext with the final remaining bytes */
+  EVP_EncryptFinal_ex(e, ciphertext+c_len, &f_len);
+
+  *len = c_len + f_len;
+  return ciphertext;
+}
+
+/*
+ * Decrypt *len bytes of ciphertext
+ */
+unsigned char *aes_decrypt(EVP_CIPHER_CTX *e, unsigned char *ciphertext, int *len)
+{
+  /* plaintext will always be equal to or lesser than length of ciphertext*/
+  int p_len = *len, f_len = 0;
+  unsigned char *plaintext = (unsigned char *)malloc(p_len);
+
+  EVP_DecryptInit_ex(e, NULL, NULL, NULL, NULL);
+  EVP_DecryptUpdate(e, plaintext, &p_len, ciphertext, *len);
+  EVP_DecryptFinal_ex(e, plaintext+p_len, &f_len);
+
+  *len = p_len + f_len;
+  return plaintext;
+}
+
+//Calculate Encryption Key for AES encryption from Private und Public Keys
+std::string CWallet::CalculateEncryptionKey(CPubKey pubkey,CKey privkey) const
+{
+    std::string secretstr="";
+
+    //convert private key to BIGNUM
+    BIGNUM *priv_bn = BN_new();
+    BN_bin2bn(privkey.begin(), privkey.size(), priv_bn);
+
+    //convert public key to EC_KEY
+    EC_KEY *pkey;
+    pkey = EC_KEY_new_by_curve_name(NID_secp256k1);
+
+    const unsigned char* pbegin = pubkey.begin();
+    o2i_ECPublicKey(&pkey, &pbegin, pubkey.size());
+    //convert public key to EC_POINT
+    const EC_POINT *pub0=EC_KEY_get0_public_key(pkey);
+
+    // create group
+    EC_GROUP *ecgrp = EC_GROUP_new_by_curve_name( NID_secp256k1 );
+
+    //calculate encryption key for the AES encryption
+    EC_POINT *secret = EC_POINT_new( ecgrp );
+    EC_POINT_mul( ecgrp, secret, NULL, pub0, priv_bn, NULL );
+
+    BIGNUM *x = BN_new();
+    BIGNUM *y = BN_new();
+    if (EC_POINT_get_affine_coordinates_GFp(ecgrp, secret, x, y, NULL)) {
+        secretstr=(std::string)BN_bn2hex(x)+(std::string)BN_bn2hex(y);
+    }
+
+    EC_GROUP_free( ecgrp ); BN_free( priv_bn ); EC_POINT_free( secret );
+    EC_KEY_free(pkey);
+
+    return secretstr;
+}
+
+std::string CWallet::EncryptRefLineTry(std::string referenceline,CPubKey pubkey,CKey privkey) const
+{
+    std::string key_data=CalculateEncryptionKey(pubkey,privkey);
+    std::string outputline="";
+
+    /* "opaque" encryption, decryption ctx structures that libcrypto uses to record
+       status of enc/dec operations */
+    EVP_CIPHER_CTX en, de;
+
+    /* 8 bytes to salt the key_data during key generation. This is an example of
+       compiled in salt. We just read the bit pattern created by these two 4 byte
+       integers on the stack as 64 bits of contigous salt material -
+       ofcourse this only works if sizeof(int) >= 4 */
+    unsigned int salt[] = {54443, 54423};
+
+    /* gen key and iv. init the cipher ctx object */
+    if (aes_init((unsigned char*)key_data.c_str(), strlen(key_data.c_str()), (unsigned char *)&salt, &en, &de)) {
+      printf("Couldn't initialize AES cipher\n");
+      return outputline;
+    }
+
+    /* The enc/dec functions deal with binary data and not C strings. strlen() will
+       return length of the string without counting the '\0' string marker. We always
+       pass in the marker byte to the encrypt/decrypt functions so that after decryption
+       we end up with a legal C string */
+    int len=strlen(referenceline.c_str())+1;
+    unsigned char *ciphertext;
+
+    ciphertext = aes_encrypt(&en, (unsigned char *)referenceline.c_str(), &len);
+    outputline=EncodeBase58(ciphertext,ciphertext+len);
+
+    free(ciphertext);
+
+    EVP_CIPHER_CTX_cleanup(&en);
+    EVP_CIPHER_CTX_cleanup(&de);
+
+    return outputline;
+}
+
+std::string CWallet::EncryptRefLine(std::string referenceline,CPubKey pubkey,CKey privkey) const
+{
+    std::string outstr="";
+
+   if (referenceline.length()<=0) return referenceline;
+
+   if(referenceline.length()>1000) referenceline.resize(1000);
+    do{
+      outstr=EncryptRefLineTry(referenceline,pubkey,privkey);
+       referenceline.resize(referenceline.length()-1);
+    } while (outstr.length()>1000);
+    return outstr;
+}
+
+std::string CWallet::DecryptRefLine(std::string referenceline,CPubKey pubkey,CKey privkey) const
+{
+
+    if (referenceline.length()<=0) return referenceline;
+
+    std::string key_data=CalculateEncryptionKey(pubkey,privkey);
+    std::string outputline="";
+
+    /* "opaque" encryption, decryption ctx structures that libcrypto uses to record
+       status of enc/dec operations */
+    EVP_CIPHER_CTX en, de;
+
+    /* 8 bytes to salt the key_data during key generation. This is an example of
+       compiled in salt. We just read the bit pattern created by these two 4 byte
+       integers on the stack as 64 bits of contigous salt material -
+       ofcourse this only works if sizeof(int) >= 4 */
+    unsigned int salt[] = {54443, 54423};
+
+    /* gen key and iv. init the cipher ctx object */
+    if (aes_init((unsigned char*)key_data.c_str(), strlen(key_data.c_str()), (unsigned char *)&salt, &en, &de)) {
+      printf("Couldn't initialize AES cipher\n");
+      return outputline;
+    }
+
+    std::vector<unsigned char> result;
+
+    DecodeBase58(referenceline, result);
+
+    unsigned char* ciphertext=(unsigned char*)&result[0];
+    int len=result.size();
+
+    outputline = (char*)aes_decrypt(&de, ciphertext, &len);
+
+    EVP_CIPHER_CTX_cleanup(&en);
+    EVP_CIPHER_CTX_cleanup(&de);
+
+    return outputline;
+
+}
+
+std::string CWallet::DecryptRefLine2PubKeys(std::string referenceline,CPubKey pubkey1,CPubKey pubkey2) const
+{
+    CKey vchSecret;
+    std::string outputline=referenceline;
+
+    //we should know the privat key for one of the 2 public keys, if we are the sender or receiver of the transaction, otherwise we can not decrypt the reference line
+    if (GetKey(pubkey2.GetID(), vchSecret)){
+        outputline=DecryptRefLine(referenceline,pubkey1,vchSecret);
+    }else
+    if (GetKey(pubkey1.GetID(), vchSecret)){
+        outputline=DecryptRefLine(referenceline,pubkey2,vchSecret);
+    }
+
+    return outputline;
+}
+
 /** @defgroup mapWallet
  *
  * @{
@@ -1323,7 +1541,7 @@ CAmount CWallet::GetUnconfirmedZerocoinBalance() const
     CAmount nUnconfirmed = 0;
     CWalletDB walletdb(pwalletMain->strWalletFile);
     list<CZerocoinMint> listMints = walletdb.ListMintedCoins(true, false, true);
- 
+
     std::map<libzerocoin::CoinDenomination, int> mapUnconfirmed;
     for (const auto& denom : libzerocoin::zerocoinDenomList){
         mapUnconfirmed.insert(make_pair(denom, 0));
@@ -2289,7 +2507,7 @@ bool CWallet::ConvertList(std::vector<CTxIn> vCoins, std::vector<CAmount>& vecAm
     return true;
 }
 
-bool CWallet::CreateTransaction(const vector<pair<CScript, CAmount> >& vecSend,
+bool CWallet::CreateTransaction(const vector<pair<CRecipient>>& vecSend,
     CWalletTx& wtxNew,
     CReserveKey& reservekey,
     CAmount& nFeeRet,
@@ -2297,18 +2515,19 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, CAmount> >& vecSend,
     const CCoinControl* coinControl,
     AvailableCoinsType coin_type,
     bool useIX,
-    CAmount nFeePay)
+    CAmount nFeePay,
+    bool encryptRefline = true)
 {
     if (useIX && nFeePay < CENT) nFeePay = CENT;
 
     CAmount nValue = 0;
 
-    BOOST_FOREACH (const PAIRTYPE(CScript, CAmount) & s, vecSend) {
+    BOOST_FOREACH (const CRecipient & r, vecSend) {
         if (nValue < 0) {
             strFailReason = _("Transaction amounts must be positive");
             return false;
         }
-        nValue += s.second;
+        nValue += r.nAmount;
     }
     if (vecSend.empty() || nValue < 0) {
         strFailReason = _("Transaction amounts must be positive");
@@ -2334,12 +2553,23 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, CAmount> >& vecSend,
 
                 // vouts to the payees
                 if (coinControl && !coinControl->fSplitBlock) {
-                    BOOST_FOREACH (const PAIRTYPE(CScript, CAmount) & s, vecSend) {
-                        CTxOut txout(s.second, s.first);
+                    BOOST_FOREACH (const CRecipient& r, vecSend) {
+                        CTxOut txout(r.nAmount, r.scriptPubKey);
                         if (txout.IsDust(::minRelayTxFee)) {
                             strFailReason = _("Transaction amount too small");
                             return false;
                         }
+
+                        txout.senderPubKey = senderPubKey;
+                        txout.receiverPubKey = recipient.cpkey;
+
+                        //encrypt reference line
+                        CKey vchSecret;
+                        if(GetKey(senderPubKey.GetID(), vchSecret)) {
+                          if(encryptRefline)
+                            txout.referenceline = EncryptRefLine(recipient.refline, txout.receiverPubKey, vchSecret);
+                        } else txout.referencelineIn = "";
+
                         txNew.vout.push_back(txout);
                     }
                 } else //UTXO Splitter Transaction
@@ -2351,13 +2581,13 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, CAmount> >& vecSend,
                     else
                         nSplitBlock = 1;
 
-                    BOOST_FOREACH (const PAIRTYPE(CScript, CAmount) & s, vecSend) {
+                    BOOST_FOREACH (const CRecipient& r, vecSend) {
                         for (int i = 0; i < nSplitBlock; i++) {
                             if (i == nSplitBlock - 1) {
-                                uint64_t nRemainder = s.second % nSplitBlock;
-                                txNew.vout.push_back(CTxOut((s.second / nSplitBlock) + nRemainder, s.first));
+                                uint64_t nRemainder = r.nAmount % nSplitBlock;
+                                txNew.vout.push_back(CTxOut((r.nAmount / nSplitBlock) + nRemainder, r.scriptPubKey));
                             } else
-                                txNew.vout.push_back(CTxOut(s.second / nSplitBlock, s.first));
+                                txNew.vout.push_back(CTxOut(r.nAmount / nSplitBlock, r.scriptPubKey));
                         }
                     }
                 }
@@ -2435,7 +2665,13 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, CAmount> >& vecSend,
                         scriptChange = GetScriptForDestination(vchPubKey.GetID());
                     }
 
-                    CTxOut newTxOut(nChange, scriptChange);
+                    CPubKey receiverPubKey;
+                    GetKeyFromPool(receiverPubKey);
+
+                    CPubKey senderPubKey;
+                    GetKeyFromPool(senderPubKey);
+
+                    CTxOut newTxOut(nChange, scriptChange, "", senderPubKey, receiverPubKey);
 
                     // Never create dust outputs; if we would, just
                     // add the dust to the fee.
@@ -3749,7 +3985,7 @@ bool CWallet::MultiSend()
         CWalletTx wtx;
         CReserveKey keyChange(this); // this change address does not end up being used, because change is returned with coin control switch
         CAmount nFeeRet = 0;
-        vector<pair<CScript, CAmount> > vecSend;
+        vector<CRecipient> vecSend;
 
         // loop through multisend vector and add amounts and addresses to the sending vector
         const isminefilter filter = ISMINE_SPENDABLE;
@@ -3949,6 +4185,127 @@ bool CMerkleTx::IsTransactionLockTimedOut() const
     }
 
     return false;
+}
+
+void CWallet::LearnRelatedScripts(const CPubKey& key)
+{
+    if (key.IsCompressed()) {
+        CTxDestination witdest = WitnessV0KeyHash(key.GetID());
+        CScript witprog = GetScriptForDestination(witdest);
+        // Make sure the resulting program is solvable.
+        assert(IsSolvable(*this, witprog));
+        AddCScript(witprog);
+    }
+}
+
+CTxDestination GetDestinationForKey(const CPubKey& key)
+{
+    if (!key.IsCompressed()) return key.GetID();
+    CTxDestination witdest = WitnessV0KeyHash(key.GetID());
+    CScript witprog = GetScriptForDestination(witdest);
+
+    return CScriptID(witprog);
+}
+
+CTxDestination GetDestinationFor2Keys(const CPubKey& key,const CPubKey& key2)
+{
+    CTxDestination dest;
+    dest=GetDestinationForKey(key);
+
+    if (auto id = boost::get<CKeyID>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessV0ScriptHash>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessV0KeyHash>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<CScriptID>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessUnknown>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<CNoDestination>(&dest)) {
+       id->recokey.resize(33);
+       std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    return dest;
+}
+
+CPubKey GetSecondPubKeyForDestination(const CTxDestination& dest)
+{
+    CPubKey key2;
+
+    if (auto id = boost::get<CKeyID>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    if (auto id = boost::get<WitnessV0ScriptHash>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    if (auto id = boost::get<WitnessV0KeyHash>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    if (auto id = boost::get<CScriptID>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    if (auto id = boost::get<WitnessUnknown>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    if (auto id = boost::get<CNoDestination>(&dest)) {
+        key2=CPubKey(id->recokey);
+    }
+    return key2;
+}
+
+void SetSecondPubKeyForDestination(CTxDestination& dest, const CPubKey& key2)
+{
+    if (auto id = boost::get<CKeyID>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessV0ScriptHash>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessV0KeyHash>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<CScriptID>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<WitnessUnknown>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+    if (auto id = boost::get<CNoDestination>(&dest)) {
+        id->recokey.resize(33);
+        std::copy(key2.begin(), key2.end() , id->recokey.begin());
+    }
+}
+
+std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key,const CPubKey& key2)
+{
+    CKeyID keyid = key.GetID();
+    CTxDestination normal = keyid;
+    SetSecondPubKeyForDestination(normal,key2);
+    if (key.IsCompressed()) {
+        CTxDestination segwit = WitnessV0KeyHash(keyid);
+        CTxDestination p2sh = CScriptID(GetScriptForDestination(segwit));
+        SetSecondPubKeyForDestination(segwit,key2);
+        SetSecondPubKeyForDestination(p2sh,key2);
+        return std::vector<CTxDestination>{std::move(normal), std::move(p2sh)/*, std::move(segwit)*/};
+    } else {
+        return std::vector<CTxDestination>{std::move(normal)};
+    }
 }
 
 bool CWallet::CreateZerocoinMintTransaction(const CAmount nValue, CMutableTransaction& txNew, vector<CZerocoinMint>& vMints, CReserveKey* reservekey, int64_t& nFeeRet, std::string& strFailReason, const CCoinControl* coinControl, const bool isZCSpendChange)

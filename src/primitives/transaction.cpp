@@ -72,6 +72,16 @@ CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
     nRounds = -10;
 }
 
+CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, std::string referencelineIn, CPubKey senderPubKeyIn, CPubKey receiverPubKeyIn)
+{
+    nValue = nValueIn;
+    scriptPubKey = scriptPubKeyIn;
+    nRounds = -10;
+    referenceline = referencelineIn;
+    senderPubKey = senderPubKeyIn;
+    receiverPubKey = receiverPubKeyIn;
+}
+
 bool COutPoint::IsMasternodeReward(const CTransaction* tx) const
 {
     if(!tx->IsCoinStake())

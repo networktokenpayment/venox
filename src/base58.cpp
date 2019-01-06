@@ -162,18 +162,30 @@ CBase58Data::CBase58Data()
     vchData.clear();
 }
 
-void CBase58Data::SetData(const std::vector<unsigned char>& vchVersionIn, const void* pdata, size_t nSize)
+void CBase58Data::SetDataPrivate(const std::vector<unsigned char>& vchVersionIn, const void* pdata, size_t nSize)
+{
+        vchVersion = vchVersionIn;
+        vchData.resize(nSize);
+        if (!vchData.empty())
+            memcpy(&vchData[0], pdata, nSize);
+}
+
+void CBase58Data::SetData(const std::vector<unsigned char>& vchVersionIn, const void* pdata, const void* pdata2, size_t nSize, size_t nSize2)
 {
     vchVersion = vchVersionIn;
     vchData.resize(nSize);
+
     if (!vchData.empty())
+    {
         memcpy(&vchData[0], pdata, nSize);
+        memcpy(&vchData[nSize], pdata2, nSize2);
+    }
 }
 
-void CBase58Data::SetData(const std::vector<unsigned char>& vchVersionIn, const unsigned char* pbegin, const unsigned char* pend)
+/*void CBase58Data::SetData(const std::vector<unsigned char>& vchVersionIn, const unsigned char* pbegin, const unsigned char* pend)
 {
     SetData(vchVersionIn, (void*)pbegin, pend - pbegin);
-}
+}*/
 
 bool CBase58Data::SetString(const char* psz, unsigned int nVersionBytes)
 {
@@ -227,22 +239,22 @@ private:
 public:
     CBitcoinAddressVisitor(CBitcoinAddress* addrIn) : addr(addrIn) {}
 
-    bool operator()(const CKeyID& id) const { return addr->Set(id); }
-    bool operator()(const CScriptID& id) const { return addr->Set(id); }
+    bool operator()(const CKeyID& id) const { return addr->Set(id, temppubkeyForBitcoinAddress); }
+    bool operator()(const CScriptID& id) const { return addr->Set(id, temppubkeyForBitcoinAddress); }
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
 } // anon namespace
 
-bool CBitcoinAddress::Set(const CKeyID& id)
+bool CBitcoinAddress::Set(const CKeyID& id, const CPubKey &id2)
 {
-    SetData(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS), &id, 20);
+    SetData(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS), &id, &id2, 20, 33);
     return true;
 }
 
-bool CBitcoinAddress::Set(const CScriptID& id)
+bool CBitcoinAddress::Set(const CScriptID& id, const CPubKey &id2)
 {
-    SetData(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS), &id, 20);
+    SetData(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS), &id, &id2, 20, 33);
     return true;
 }
 
@@ -296,7 +308,7 @@ bool CBitcoinAddress::IsScript() const
 void CBitcoinSecret::SetKey(const CKey& vchSecret)
 {
     assert(vchSecret.IsValid());
-    SetData(Params().Base58Prefix(CChainParams::SECRET_KEY), vchSecret.begin(), vchSecret.size());
+    SetDataPrivate(Params().Base58Prefix(CChainParams::SECRET_KEY), vchSecret.begin(), vchSecret.size());
     if (vchSecret.IsCompressed())
         vchData.push_back(1);
 }
